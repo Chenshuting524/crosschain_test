@@ -17,3 +17,6 @@
 .DS_Store
 config.json
 tmp/
+config/*.json
+config/*.txt
+config/*.md

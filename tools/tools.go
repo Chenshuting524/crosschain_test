@@ -12,9 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KSlashh/crosschain_test/abi"
-	"github.com/KSlashh/crosschain_test/config"
-	"github.com/KSlashh/crosschain_test/log"
+	"crosschain_test/abi"
+	"crosschain_test/config"
+	"crosschain_test/log"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -47,40 +48,40 @@ type GetFeeRsp struct {
 	BalanceWithPrecision     string
 }
 
-func Swap(client *ethclient.Client, fromAsset common.Address, toPoolId uint64, toChainId uint64, toAsset []byte, toAddress []byte, amount *big.Int, conf *config.Network) (common.Hash, error) {
-	privateKey, err := crypto.HexToECDSA(conf.SenderPrivateKey)
+func Swap(client *ethclient.Client, fromAsset common.Address, toPoolId uint64, toChainId uint64, toAsset []byte, toAddress []byte, amount *big.Int, conf *config.Network, account *config.Account) (common.Hash, error) {
+	privateKey, err := crypto.HexToECDSA(account.SenderPrivateKey)
 	if err != nil {
-		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap ", err))
+		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap HexToECDSA", err))
 	}
 	ISwapperContract, err := abi.NewISwapper(conf.Swapper, client)
 	if err != nil {
-		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap ", err))
+		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap NewISwapper", err))
 	}
 	chainId, err := client.ChainID(context.Background())
 	if err != nil {
-		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap ", err))
+		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap ChainID", err))
 	}
 	fee, err := GetFee(conf.PolyChainID, toChainId, AddressZero)
 	if err != nil {
-		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap ", err))
+		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap GetFee", err))
 	}
 	auth, err := MakeAuth(client, privateKey, fee, DefaultGasLimit, chainId)
 	if err != nil {
-		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap ", err))
+		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap MakeAuth", err))
 	}
 	tx, err := ISwapperContract.Swap(auth, fromAsset, toPoolId, toChainId, toAsset, toAddress, amount, Zero, fee, DefaultId)
 	if err != nil {
-		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap ", err))
+		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap Swap", err))
 	}
 	err = WaitTxConfirm(client, tx.Hash())
 	if err != nil {
-		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap ", err))
+		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to swap WaitTxConfirm", err))
 	}
 	return tx.Hash(), nil
 }
 
-func Add(client *ethclient.Client, fromAsset common.Address, toPoolId uint64, toChainId uint64, toAddress []byte, amount *big.Int, conf *config.Network) (common.Hash, error) {
-	privateKey, err := crypto.HexToECDSA(conf.SenderPrivateKey)
+func Add(client *ethclient.Client, fromAsset common.Address, toPoolId uint64, toChainId uint64, toAddress []byte, amount *big.Int, conf *config.Network, account *config.Account) (common.Hash, error) {
+	privateKey, err := crypto.HexToECDSA(account.SenderPrivateKey)
 	if err != nil {
 		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to AddLiquidity ", err))
 	}
@@ -92,6 +93,7 @@ func Add(client *ethclient.Client, fromAsset common.Address, toPoolId uint64, to
 	if err != nil {
 		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to AddLiquidity ", err))
 	}
+	//fee := big.NewInt(0)
 	fee, err := GetFee(conf.PolyChainID, toChainId, AddressZero)
 	if err != nil {
 		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to AddLiquidity ", err))
@@ -111,8 +113,8 @@ func Add(client *ethclient.Client, fromAsset common.Address, toPoolId uint64, to
 	return tx.Hash(), nil
 }
 
-func Remove(client *ethclient.Client, fromAsset common.Address, toPoolId uint64, toChainId uint64, toAsset []byte, toAddress []byte, amount *big.Int, conf *config.Network) (common.Hash, error) {
-	privateKey, err := crypto.HexToECDSA(conf.SenderPrivateKey)
+func Remove(client *ethclient.Client, fromAsset common.Address, toPoolId uint64, toChainId uint64, toAsset []byte, toAddress []byte, amount *big.Int, conf *config.Network, account *config.Account) (common.Hash, error) {
+	privateKey, err := crypto.HexToECDSA(account.SenderPrivateKey)
 	if err != nil {
 		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to RemoveLiquidity ", err))
 	}
@@ -143,8 +145,8 @@ func Remove(client *ethclient.Client, fromAsset common.Address, toPoolId uint64,
 	return tx.Hash(), nil
 }
 
-func Lock(client *ethclient.Client, fromAsset common.Address, toChainId uint64, toAddress []byte, amount *big.Int, conf *config.Network) (common.Hash, error) {
-	privateKey, err := crypto.HexToECDSA(conf.SenderPrivateKey)
+func Lock(client *ethclient.Client, fromAsset common.Address, toChainId uint64, toAddress []byte, amount *big.Int, conf *config.Network, account *config.Account) (common.Hash, error) {
+	privateKey, err := crypto.HexToECDSA(account.SenderPrivateKey)
 	if err != nil {
 		return EmptyHash, fmt.Errorf(fmt.Sprint("fail to lock ", err))
 	}
@@ -175,30 +177,30 @@ func Lock(client *ethclient.Client, fromAsset common.Address, toChainId uint64, 
 	return tx.Hash(), nil
 }
 
-func Approve(client *ethclient.Client, token, spender common.Address, amount *big.Int, conf *config.Network) error {
-	privateKey, err := crypto.HexToECDSA(conf.SenderPrivateKey)
+func Approve(client *ethclient.Client, token, spender common.Address, amount *big.Int, conf *config.Network, account *config.Account) error {
+	privateKey, err := crypto.HexToECDSA(account.SenderPrivateKey)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("fail to approve token %s ,", token.Hex()), err)
+		return fmt.Errorf(fmt.Sprintf("fail to approve token %s HexToECDSA,", token.Hex()), err)
 	}
 	IERC20Contract, err := abi.NewIERC20(token, client)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("fail to approve token %s ,", token.Hex()), err)
+		return fmt.Errorf(fmt.Sprintf("fail to approve token %s NewIERC20,", token.Hex()), err)
 	}
 	chainId, err := client.ChainID(context.Background())
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("fail to approve token %s ,", token.Hex()), err)
+		return fmt.Errorf(fmt.Sprintf("fail to approve token %s ChainID,", token.Hex()), err)
 	}
 	auth, err := MakeAuth(client, privateKey, Zero, DefaultGasLimit, chainId)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("fail to approve token %s ,", token.Hex()), err)
+		return fmt.Errorf(fmt.Sprintf("fail to approve token %s make auth,", token.Hex()), err)
 	}
 	tx, err := IERC20Contract.Approve(auth, spender, amount)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("fail to approve token %s ,", token.Hex()), err)
+		return fmt.Errorf(fmt.Sprintf("fail to approve token %s Approve ,", token.Hex()), err)
 	}
 	err = WaitTxConfirm(client, tx.Hash())
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("fail to approve token %s ,", token.Hex()), err)
+		return fmt.Errorf(fmt.Sprintf("fail to approve token %s WaitTxConfirm,", token.Hex()), err)
 	}
 	return nil
 }
@@ -242,8 +244,12 @@ func WaitTxConfirm(client *ethclient.Client, hash common.Hash) error {
 	end := time.Now().Add(60 * time.Second)
 	for now := range ticker.C {
 		_, pending, err := client.TransactionByHash(context.Background(), hash)
+
 		if err != nil {
-			log.Debug("failed to call TransactionByHash: %v", err)
+			log.Info("failed to call TransactionByHash: %v", err)
+			if now.After(end) {
+				break
+			}
 			continue
 		}
 		if !pending {
